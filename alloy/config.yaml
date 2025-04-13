@@ -1,0 +1,59 @@
+version: '1'
+
+server:
+  log_level: info
+  grpc:
+    listen_address: 0.0.0.0:4317
+  http:
+    listen_address: 0.0.0.0:4318
+  prometheus:
+    listen_address: 0.0.0.0:9090
+
+pipelines:
+  logs:
+    - name: otlp_to_loki
+      receivers:
+        - otlp
+      processors:
+        - batch
+        - resourceattributes
+        - attributes
+      exporters:
+        - loki
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    max_batch_size: 1000
+
+  resourceattributes:
+    actions:
+      - key: service.name
+        action: upsert
+        value: "opentelemetry-log4j2-alloy"
+
+  attributes:
+    actions:
+      - key: loki.attribute.labels
+        action: upsert
+        value: "service.name,service.version,log.level,severity"
+
+exporters:
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    tenant_id: "alloy"
+    labels:
+      resource:
+        service.name: "service_name"
+        service.version: "service_version"
+      record:
+        severity: "severity"
+        log.level: "log_level"

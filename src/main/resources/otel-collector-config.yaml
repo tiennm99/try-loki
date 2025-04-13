@@ -1,0 +1,44 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+
+  resourcedetection:
+    detectors: [ env, system ]
+    timeout: 2s
+
+  attributes:
+    actions:
+      - key: service.name
+        action: upsert
+        value: "opentelemetry-log4j2-alloy"
+
+exporters:
+  logging:
+    loglevel: debug
+
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    tenant_id: "alloy"
+    labels:
+      resource:
+        service.name: "service_name"
+        service.version: "service_version"
+      attributes:
+        severity: "severity"
+        log.level: "log_level"
+
+service:
+  pipelines:
+    logs:
+      receivers: [ otlp ]
+      processors: [ batch, resourcedetection, attributes ]
+      exporters: [ logging, loki ]
